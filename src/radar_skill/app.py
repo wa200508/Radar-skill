@@ -1,7 +1,7 @@
 # Copyright (c) 2026 wa200508
 # SPDX-License-Identifier: Apache-2.0
 # Extracted from airsim-rf 3b36fe0; original MIT notice is retained in licenses/.
-"""Receiver-only FMCW range/Doppler skill; accepts hardware or recorded ADC I/Q.
+"""Active FMCW radar skill: command a transceiver and process complex ADC I/Q.
 
 The receiver configuration supplies chirp timing, not targets or environment.
 No simulator, propagation backend or source trajectory is imported or opened.
@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import signal
 import threading
 import time
 from urllib.parse import urlsplit
@@ -20,6 +21,7 @@ import numpy as np
 from .sample_stream import iter_stream
 from .results import ResultWriter
 from .processing import range_doppler
+from .transceiver import TransceiverClient, validate_mode
 
 
 
@@ -31,7 +33,30 @@ class RadarSkill:
         if len(self.channels)!=1:raise ValueError('This radar skill expects one complex receiver channel')
         self.lock=threading.Lock();self.started=time.monotonic();self.frames=deque(maxlen=128);self.waterfall=deque(maxlen=60)
         self.results=ResultWriter(results_dir) if results_dir else None
+        self.radio=None
         self.state={'status':'starting','ingress_ready':False,'payload_bytes':0,'complex_samples':0,'complete_windows':0,'payload_bytes_per_second':0.}
+
+    def start_transceiver(self,address,mode,*,ready_timeout=600):
+        mode=validate_mode(mode,self.arrays)
+        self.radio=TransceiverClient(address)
+        result=self.radio.start(mode,ready_timeout=ready_timeout)
+        with self.lock:self.state['transceiver']={'configuration_id':result['configuration_id'],
+            'transmit':result['transmit'],'receive':result['receive'],'requested_mode':mode}
+        return result
+
+    def stop_transceiver(self):
+        if self.radio is not None:
+            result=self.radio.stop()
+            with self.lock:self.state.setdefault('transceiver',{}).update(transmit=False,receive=False)
+            return result
+
+    def set_transceiver_state(self,state):
+        if self.radio is None:raise ValueError('Replay has no transceiver control')
+        if set(state)!={'transmit','receive'} or any(type(value) is not bool for value in state.values()):
+            raise ValueError('Boolean transmit and receive states required')
+        result=self.radio.set_state(**state)
+        with self.lock:self.state['transceiver'].update(state)
+        return result
 
     def snapshot(self,epoch=None):
         with self.lock:
@@ -82,11 +107,33 @@ class RadarSkill:
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--arrays',required=True);parser.add_argument('--results-dir')
+    parser.add_argument('--mode',help='Hardware-neutral radar waveform, TX power and ADC gate JSON')
+    parser.add_argument('--radio-url',help='Physical or simulated transceiver adapter HTTP URL')
+    parser.add_argument('--radio-ready-timeout',type=float,default=600)
+    parser.add_argument('--replay',action='store_true',help='Process recorded/external I/Q without commanding any transmission')
     parser.add_argument('--iq-port',type=int,default=int(os.environ.get('RF_IQ_PORT','8811')))
     parser.add_argument('--http-port',type=int,default=int(os.environ.get('RF_HTTP_PORT','8812')));args=parser.parse_args()
+    if args.replay:
+        if args.radio_url or args.mode:parser.error('--replay cannot be combined with radio control')
+    elif not args.radio_url or not args.mode:parser.error('Active radar requires --radio-url and --mode; use --replay for recorded I/Q')
+    if not 0<args.radio_ready_timeout<=1800:parser.error('radio-ready-timeout must be in (0,1800] seconds')
     skill=RadarSkill(args.arrays,results_dir=args.results_dir)
+    def terminate(*_):raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM,terminate)
     threading.Thread(target=skill.serve_stream,args=(args.iq_port,),daemon=True).start()
     class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            if urlsplit(self.path).path!='/transceiver/state':self.send_error(404);return
+            try:
+                length=int(self.headers.get('Content-Length','0'))
+                if not 0<length<=1024:raise ValueError('State request must contain 1..1024 bytes')
+                self.connection.settimeout(5)
+                result=skill.set_transceiver_state(json.loads(self.rfile.read(length)))
+            except (ValueError,KeyError,TypeError) as error:self.send_error(400,str(error));return
+            except OSError as error:self.send_error(502,str(error));return
+            data=json.dumps(result,allow_nan=False).encode();self.send_response(200)
+            self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)))
+            self.end_headers();self.wfile.write(data)
         def do_GET(self):
             url=urlsplit(self.path).path
             try:
@@ -99,7 +146,16 @@ def main():
             self.send_response(503 if url=='/health' and (not state['ingress_ready'] or state['status']=='failed') else 200)
             self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
         def log_message(self,*args):pass
-    ThreadingHTTPServer(('0.0.0.0',args.http_port),Handler).serve_forever()
+    try:
+        if not args.replay:skill.start_transceiver(args.radio_url,json.loads(Path(args.mode).read_text()),ready_timeout=args.radio_ready_timeout)
+        ThreadingHTTPServer(('0.0.0.0',args.http_port),Handler).serve_forever()
+    except KeyboardInterrupt:pass
+    finally:
+        # Radio stop is independent of the stream/journal shutdown. Physical
+        # adapters must also implement their own disconnect/watchdog interlock.
+        if skill.radio is not None:
+            try:skill.stop_transceiver()
+            except OSError:pass
 
 
 if __name__=='__main__':main()

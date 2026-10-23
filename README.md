@@ -1,139 +1,139 @@
 # Radar RF Skill
 
-Independent FMCW radar processing from timestamped complex ADC I/Q. This is the
-receiver skill extracted from [airsim-rf](https://github.com/wa200508/airsim-rf),
-packaged separately like [DF-Skill](https://github.com/wa200508/DF-Skill).
-It accepts live receiver adapters and recorded streams through the same interface.
-There is no simulator, propagation, scene, platform trajectory or target model
-in this repository or its container. NumPy is its only runtime dependency.
+An independent **active FMCW radar skill**: it chooses the transmit waveform,
+programs TX power and coherent chirp timing, configures the complex ADC receive
+gate and gain, enables TX/RX, and processes the returned I/Q into range/Doppler
+candidates. It has no simulator, propagation, terrain, trajectory, RCS or target
+truth dependency. NumPy is its only runtime dependency.
 
-## Run the container
+The same hardware-neutral adapter API applies to simulated and physical radios.
+The skill programs an RF chirp synthesizer; it does not try to sample a 77 GHz
+carrier or a 50 MHz sweep using the 10 MS/s dechirped ADC stream.
+
+## Run an active radar
+
+For the complete simulated radio and dashboard, select the radar scenario in
+[airsim-rf](https://github.com/wa200508/airsim-rf):
 
 ```bash
-docker pull ghcr.io/wa200508/airsim-rf:radar-skill-sha-ed36dffc23e716e24d7bf3ed084c0358d1d12e18
-mkdir -p results
-# Demonstration receiver settings; use your recording/hardware settings for real data.
-curl -fsSLo receiver-config.json https://raw.githubusercontent.com/wa200508/Radar-skill/main/examples/receiver-config.json
-# Rootful Docker: match the writable output directory's host owner.
-docker run --rm --user "$(id -u):$(id -g)" \
-  -p 127.0.0.1:8811:8811 -p 127.0.0.1:8812:8812 \
-  -v "$PWD/receiver-config.json:/config/arrays.json:ro" \
-  -v "$PWD/results:/results" \
-  ghcr.io/wa200508/airsim-rf:radar-skill-sha-ed36dffc23e716e24d7bf3ed084c0358d1d12e18
+bash scripts/run_dashboard.sh --scenario mmwave-radar --open
 ```
 
-For **rootless Docker**, use `--user 0:0` so its mapped UID owns a directory
-created by your login user. For rootful Docker, use your host UID/GID as above.
-No GPU, Docker socket, privileged mode or host network is required. HTTP status
-is available at `http://localhost:8812/status`; I/Q ingress is TCP 8811.
-Use the provided [receiver configuration example](examples/receiver-config.json),
-or the receiver-only configuration alongside an airsim-rf I/Q recording.
-The AirSim dashboard selects this immutable image automatically.
-
-## Develop without containers
+For development against a compatible radio adapter:
 
 ```bash
-git clone https://github.com/wa200508/Radar-Skill.git
-cd Radar-Skill
+git clone https://github.com/wa200508/Radar-skill.git
+cd Radar-skill
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e '.[test]'
-radar-skill --arrays examples/receiver-config.json --results-dir results
+radar-skill --arrays examples/receiver-config.json   --mode examples/radar-mode.json --radio-url http://RADIO_ADAPTER:8814   --results-dir results
 ```
 
-Start the service with an adapter sending the framed TCP v2 complex-voltage
-contract. Acquiring, tuning or steering hardware remains the receiver adapter's
-job. The skill cannot control a transmitter, receiver or simulation.
+Replace RADIO_ADAPTER with the adapter's reachable address. The adapter must
+implement [the transceiver contract](docs/transceiver-control.md) and send
+framed TCP v2 ADC I/Q to this service's port 8811. The sample mode requests
+77 GHz, a 50 MHz/32 us up-chirp, 40 us PRI, 12 dBm TX, and a 10 MS/s receive
+gate of 256 complex samples beginning 3 us into each chirp, at 60 dB IF gain.
+Those are explicit demonstration settings within the modeled IWR1843 limits,
+not measured board calibration or vendor firmware defaults.
 
-## What it computes
+This repository supplies the skill and protocol, not a TI/DCA1000 hardware
+driver. Physical radios need a compatible adapter that programs their hardware
+and preserves the declared I/Q convention, gate timing and voltage calibration.
 
-[processing.py](src/radar_skill/processing.py) extracts the first 64 complete
-chirps from each acquisition window, removes per-ramp DC, applies Hann windows
-and a 2D FFT, and searches positive range beats. A candidate must exceed the
-median map power by 18 dB. This is a teaching detector; it does not claim a
-calibrated CFAR false-alarm probability. It currently reports one strongest
-candidate, rather than target tracks, MIMO angles or classified targets.
+The mode lives in `examples/radar-mode.json` for standalone development and in
+`scenarios/mmwave-radar/radar-mode.json` in airsim-rf. The skill sends the mode
+using PUT /v1/configuration, checks its identity, then POST /v1/state enables
+both transmit and receive. Adapter acknowledgements mean command acceptance;
+application occurs at an acquisition-window boundary. Status reports the applied
+configuration and timestamp. Unsupported settings fail without fallback.
 
-Its mixer convention is **TX × conjugate(RX)**: positive reported range rate
-means receding, negative means approaching. The peak range is corrected for
-FMCW range/Doppler coupling; the displayed map's range axis retains coupling.
-Doppler comes from received slow-time phase, never a supplied target velocity.
-Hardware using the opposite I/Q convention needs a deliberate adapter conversion.
+The skill's HTTP port 8812 provides /health, /status, /frames/<timestamp_ns>
+and /epochs/<timestamp_ns>. POST /transceiver/state forwards boolean transmit
+and receive flags to the radio. Muting transmit while keeping receive enabled
+allows noise-only acquisition. Normal termination requests TX and RX off.
+Adapters remain responsible for hardware watchdogs and disconnect handling.
 
-The receiver configuration supplies carrier/sample rate, channel identity,
-sweep bandwidth/duration, PRI, ADC gate offset and sample count. It describes
-**dechirped complex ADC volts**, with zero-filled gate gaps preserving original
-time. It contains no target position, RCS, flight plan, source waveform buffer
-or terrain. A hardware adapter must preserve the same chirp/gate timing.
+## Public container
 
-[app.py](src/radar_skill/app.py) performs ingress validation and result
-journaling. [sample_stream.py](src/radar_skill/sample_stream.py) defines the
-versioned cf32 little-endian TCP protocol. A window ACK is sent only after
-processing and journaling succeed. The current application expects one receiver
-channel, complete chirps, at least 64 chirps per window, and a fixed carrier/rate.
+The public immutable image is selected by
+[airsim-rf's scenario and release pins](https://github.com/wa200508/airsim-rf/blob/main/docs/radar-skill.md).
+Its release workflow builds this repository's own Dockerfile at an exact source
+commit and verifies a fresh anonymous pull followed by offline qualification.
+It is hosted under the existing public airsim-rf GHCR package because the separate
+radar-skill GHCR package rejects anonymous pulls. This hosting location introduces
+no AirSim runtime dependency. Source CI builds/tests its current checkout;
+the pinned released image is qualified separately.
 
-## Recordings, GNU Radio and replay
+An active container needs receiver-config.json, radar-mode.json, a writable
+results directory and a reachable radio adapter. Its default command targets
+http://rf-acquisition:8814 on a shared Docker network, matching the AirSim launcher.
+No GPU, Docker socket or privileged mode is required by the skill. For rootful
+Docker, use --user "$(id -u):$(id -g)" with a host-owned results directory; for
+rootless Docker use --user 0:0 so its mapped UID owns that directory.
 
-The neutral archive stores native GNU Radio `gr_complex` files as per-channel
-`*.sigmf-data`, with SigMF metadata, `receiver-config.json` and a coherent
-`windows.jsonl` journal. Stock `.grc` viewers/replay graphs accompany recordings.
-Acquisition time, channel order, amplitude and phase survive replay exactly.
-ADC gate gaps remain in the stream; they must not be compressed away.
-
-Run the consumer using the archive's configuration, then replay in another shell:
+## Recorded I/Q replay (no transmission)
 
 ```bash
-radar-skill --arrays /path/to/iq/receiver-config.json --results-dir results
+radar-skill --replay --arrays /path/to/iq/receiver-config.json --results-dir replay-results
+# In another terminal:
 python -m radar_skill.sample_recording inspect /path/to/iq --verify
 python -m radar_skill.sample_recording replay /path/to/iq --host 127.0.0.1 --port 8811
 ```
 
-Replay is as fast as acknowledged by default; use `--speed 1` to pace original
-acquisition time. A new replay should use a fresh consumer process and output
-directory. GNU Radio developers can connect their processing directly to the
-stock complex File Source outputs; no simulation rerun or file conversion is needed.
+Replay is explicit: --replay rejects --radio-url and --mode and never opens a
+radio-control connection. The archive contains native GNU Radio gr_complex
+cf32 little-endian *.sigmf-data, metadata and windows.jsonl. Acquisition time,
+channel identity, phase and volts survive replay exactly. Gate gaps must not be
+compressed. Replay runs as fast as acknowledged; --speed 1 paces original time.
+Use a fresh consumer and output directory per replay.
 
-## Service contract
+## Processing and ownership
 
-- `RF_IQ_PORT` / `--iq-port`: input TCP port, default 8811.
-- `RF_HTTP_PORT` / `--http-port`: observer HTTP port, default 8812.
-- `--arrays`: receiver-only JSON configuration path.
-- `--results-dir`: writable journal of `<timestamp_ns>.json` results.
-- HTTP: `/health`, `/status`, `/frames/<timestamp_ns>`, `/epochs/<timestamp_ns>`.
-- Results include neutral acquisition `timestamp_ns`, transport counters,
-  receiver PSD/waterfall, processing latency and `radar` range/range-rate map.
+- [transceiver.py](src/radar_skill/transceiver.py): mode validation, waveform and
+  receive settings, configure/start/stop radio client.
+- [app.py](src/radar_skill/app.py): active skill lifecycle, received I/Q validation,
+  status, and processing-result journal.
+- [processing.py](src/radar_skill/processing.py): first 64 complete chirps per
+  window, per-chirp DC removal, Hann windows, 2D FFT and positive range beats.
+- [sample_stream.py](src/radar_skill/sample_stream.py): acknowledged TCP v2
+  complex ADC transport; ACK only follows successful processing and journaling.
+- [sample_recording.py](src/radar_skill/sample_recording.py): neutral lossless
+  recording/replay, also usable by GNU Radio developers.
 
-This is the existing airsim-rf receiver-TCP-v2 contract. It does not claim native
-AMS-GRA MEL/VITA or bare SQUALL UDP compatibility. Unlike DF-Skill, this initial
-radar consumer has no gRPC control endpoint; scenario control port is `null`.
+The detector reports one strongest candidate above 18 dB contrast relative to
+median map power. This is a teaching detector, not calibrated CFAR, MIMO angle
+estimation or target tracking. Its mixer convention is TX times conjugate(RX):
+positive reported range rate means receding. Peak range is corrected for
+range/Doppler coupling; the displayed range map retains coupling. Doppler
+comes from measured slow-time phase, never supplied target velocity.
+The receiver currently expects one channel, at least 64 complete chirps/window,
+and a fixed carrier, sample rate and waveform/gate configuration per session.
+Changing that configuration requires a new stream session and matching metadata.
 
-## Verification and publishing
+This HTTP control contract and receiver TCP v2 data plane do not claim native
+AMS-GRA MEL/VITA or stock SQUALL UDP compatibility.
+
+## Qualification
 
 ```bash
+python -m pytest -q
 docker build -t radar-skill:test .
 docker run --rm --network none --entrypoint python radar-skill:test scripts/qualify_independence.py
-python -m pytest -q
 ```
 
-The standalone qualifier requires AirSim, Sionna, CUDA and DF-Skill packages to
-be **physically absent**. It exercises real TCP/HTTP and result files, verifies
-lossless sample recording, then replays the exact data through a fresh unchanged
-consumer and requires identical radar results. Run it in the container or a
-clean NumPy-only environment, not an environment also containing airsim-rf.
-CI repeats these checks. The public release is built from this repository's own
-Dockerfile and pinned source commit `ed36dffc23e716e24d7bf3ed084c0358d1d12e18` by
-[the public release workflow](https://github.com/wa200508/airsim-rf/blob/main/.github/workflows/radar-skill.yml).
-It is hosted under the existing public `airsim-rf` GHCR package because the separate
-`radar-skill` package currently rejects anonymous pulls. The image contains only
-this skill and NumPy; its hosting location introduces no AirSim dependency.
-The release workflow verifies a fresh anonymous pull and offline I/Q replay.
-To release a changed implementation, update the source pin and image selection
-in airsim-rf together. Source CI builds and tests the current checkout separately
-from its smoke check of the pinned public release.
+The standalone qualifier requires AirSim, Sionna, CUDA and DF-Skill to be
+physically absent. It commands a neutral instrument harness over actual HTTP,
+verifies configure/start/stop, receives I/Q over real TCP, checks detection and
+result files, records exactly and replays through a fresh unchanged consumer.
+Replay must produce identical radar results without issuing radio commands.
+The AirSim cross-repository tests separately exercise the actual Sionna model,
+including commanded TX power, TX-off suppression and a nondefault sweep.
+These CPU checks do not assert native GPU flight performance.
 
-## License and attribution
+## License
 
-Apache-2.0, matching DF-Skill and the public AMS-GRA Hello World Starter Kit RF
-skill's license selection. The original airsim-rf MIT notice is preserved in
-[licenses/airsim-rf-MIT.txt](licenses/airsim-rf-MIT.txt); see [NOTICE](NOTICE).
-This does not assert U.S. Government authorship or change NumPy's license.
+Apache-2.0, matching DF-Skill and the public AMS-GRA starter kit RF example.
+The original airsim-rf MIT notice is retained in [licenses/airsim-rf-MIT.txt](licenses/airsim-rf-MIT.txt)
+and [NOTICE](NOTICE).

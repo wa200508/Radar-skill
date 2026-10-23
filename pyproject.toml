@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "radar-skill"
-version = "0.1.0"
-description = "Independent FMCW radar RF skill for complex ADC receiver streams"
+version = "0.2.0"
+description = "Independent active FMCW radar RF skill with transceiver control and complex ADC processing"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"

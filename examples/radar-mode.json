@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "waveform": {
+    "type": "fmcw-linear-up",
+    "carrier_hz": 77000000000.0,
+    "bandwidth_hz": 50000000.0,
+    "chirp_duration_s": 3.2e-05,
+    "pri_s": 4e-05,
+    "power_dbm": 12.0
+  },
+  "receiver": {
+    "channel": "radar_rx0",
+    "sample_rate_hz": 10000000.0,
+    "num_samples": 256,
+    "adc_start_s": 3e-06,
+    "gain_db": 60.0
+  }
+}

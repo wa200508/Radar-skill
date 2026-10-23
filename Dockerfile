@@ -19,4 +19,4 @@ USER rf
 EXPOSE 8811 8812
 HEALTHCHECK --interval=5s --timeout=3s CMD python -c "import os,urllib.request; urllib.request.build_opener(urllib.request.ProxyHandler({})).open('http://127.0.0.1:'+os.environ.get('RF_HTTP_PORT','8812')+'/health',timeout=2)"
 ENTRYPOINT ["python", "-m", "radar_skill"]
-CMD ["--arrays", "/config/arrays.json", "--results-dir", "/results"]
+CMD ["--arrays", "/config/arrays.json", "--mode", "/config/radar-mode.json", "--radio-url", "http://rf-acquisition:8814", "--results-dir", "/results"]

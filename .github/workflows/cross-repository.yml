@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wa200508/airsim-rf
-          ref: 344b4af30748595fd93990e1fd9cabb39e027179
+          ref: 977be6bb919ae698e4daab31ed39ef4549579ce6
           path: acquisition
       - uses: actions/setup-python@v5
         with:
@@ -41,5 +41,5 @@ jobs:
           PYTHONPATH: acquisition/src
           MPLCONFIGDIR: /tmp/radar-contract-matplotlib
         run: |
-          python -m pytest acquisition/tests/test_radar_control.py acquisition/tests/test_radar_scenario.py acquisition/tests/test_architecture_boundaries.py acquisition/tests/test_dashboard_container.py acquisition/tests/test_dashboard_http.py acquisition/tests/test_scenario_definition.py -q -rs -p no:cacheprovider
+          python -m pytest acquisition/tests/test_skill_display.py acquisition/tests/test_dashboard_recording.py acquisition/tests/test_radar_control.py acquisition/tests/test_radar_scenario.py acquisition/tests/test_architecture_boundaries.py acquisition/tests/test_dashboard_container.py acquisition/tests/test_dashboard_http.py acquisition/tests/test_scenario_definition.py -q -rs -p no:cacheprovider
           node --test acquisition/tests/dashboard_presentation.test.cjs

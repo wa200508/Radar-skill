@@ -12,6 +12,8 @@ in this repository or its container. NumPy is its only runtime dependency.
 ```bash
 docker pull ghcr.io/wa200508/radar-skill:latest
 mkdir -p results
+# Demonstration receiver settings; use your recording/hardware settings for real data.
+curl -fsSLo receiver-config.json https://raw.githubusercontent.com/wa200508/Radar-skill/main/examples/receiver-config.json
 # Rootful Docker: match the writable output directory's host owner.
 docker run --rm --user "$(id -u):$(id -g)" \
   -p 127.0.0.1:8811:8811 -p 127.0.0.1:8812:8812 \

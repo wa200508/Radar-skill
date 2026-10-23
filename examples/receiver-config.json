@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "sample_rate_hz": 10000000,
+  "carrier_hz": 77000000000,
+  "voltage_reference": "bias-subtracted ADC volts",
+  "sites": [
+    {
+      "id": "radar",
+      "channels": [
+        "radar_rx0"
+      ]
+    }
+  ],
+  "acquisition": {
+    "type": "fmcw-dechirped",
+    "bandwidth_hz": 50000000,
+    "chirp_duration_s": 0.000032,
+    "num_samples": 256,
+    "adc_start_s": 0.000003,
+    "pri_s": 0.00004,
+    "adc_gate": "zero-filled outside acquisition gate",
+    "chirp_origin": "first window timestamp"
+  }
+}

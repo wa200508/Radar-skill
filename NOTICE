@@ -1,0 +1,13 @@
+Radar RF Skill
+Copyright (c) 2026 wa200508
+
+The receiver application, FFT processing, neutral I/Q interfaces and sample
+recording/replay adapters were extracted from wa200508/airsim-rf commit
+3b36fe0. Original MIT attribution is retained in licenses/airsim-rf-MIT.txt.
+
+Apache License 2.0 matches wa200508/DF-Skill and the public AMS-GRA Hello World
+Starter Kit RF skill (skills/rf-fm-demod). No U.S. Government authorship is claimed.
+https://gitlab.com/open-arsenal/ams-gra/hello-world-sk/skills/rf-fm-demod/-/blob/main/LICENSE
+
+This skill uses NumPy (BSD-3-Clause), installed separately rather than vendored.
+It contains no AirSim, Sionna, target model, scene or direction-finding code.

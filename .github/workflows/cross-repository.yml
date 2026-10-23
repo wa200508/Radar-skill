@@ -12,20 +12,24 @@ concurrency:
 jobs:
   acquisition-consumer:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
           repository: wa200508/airsim-rf
-          ref: 7d37ce65413f637bfb2e2675385a481b39ab1c16
+          ref: a3b30ed88162a2939bc1016f1c163d84475d595f
           path: acquisition
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install only CPU contract and test dependencies
+      - name: Install CPU ray-tracing library
         run: |
-          python -m pip install -r requirements-lock.txt scipy==1.18.1 pytest==9.1.1 commentjson==0.9.0
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libllvm18
+      - name: Install CPU path, contract and test dependencies
+        run: |
+          python -m pip install -r requirements-lock.txt scipy==1.18.1 pytest==9.1.1 commentjson==0.9.0 sionna-rt==2.2.0
           python -m pip install --no-deps --no-build-isolation . -r acquisition/requirements-df-skill.txt
       - name: Compile and audit source separation and documentation
         run: |
@@ -35,6 +39,7 @@ jobs:
       - name: Test acquisition package and external consumer contract
         env:
           PYTHONPATH: acquisition/src
+          MPLCONFIGDIR: /tmp/radar-contract-matplotlib
         run: |
-          python -m pytest acquisition/tests/test_radar_scenario.py acquisition/tests/test_architecture_boundaries.py acquisition/tests/test_dashboard_container.py -q -rs -p no:cacheprovider
+          python -m pytest acquisition/tests/test_radar_control.py acquisition/tests/test_radar_scenario.py acquisition/tests/test_architecture_boundaries.py acquisition/tests/test_dashboard_container.py acquisition/tests/test_dashboard_http.py acquisition/tests/test_scenario_definition.py -q -rs -p no:cacheprovider
           node --test acquisition/tests/dashboard_presentation.test.cjs

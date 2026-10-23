@@ -11,7 +11,7 @@ concurrency:
   group: radar-skill-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  test-publish:
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -38,7 +38,7 @@ jobs:
       # permits anonymous pulls; the separate radar-skill package currently does not.
       - name: Verify the pinned public release with a fresh anonymous pull
         env:
-          PUBLIC_IMAGE: ghcr.io/wa200508/airsim-rf:radar-skill-sha-ed36dffc23e716e24d7bf3ed084c0358d1d12e18
+          PUBLIC_IMAGE: ghcr.io/wa200508/airsim-rf:radar-skill-sha-bea025f28894b089d2d371479d1a8936f1dd0fb7
         run: |
           anonymous_config=$(mktemp -d)
           trap 'rm -rf "$anonymous_config"' EXIT

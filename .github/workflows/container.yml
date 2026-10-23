@@ -1,4 +1,4 @@
-name: Test and publish Radar RF Skill
+name: Test Radar RF Skill
 on:
   push:
     branches: [main]
@@ -16,7 +16,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -34,23 +33,14 @@ jobs:
       - name: Unit tests in the installed environment
         run: |
           docker run --rm --entrypoint sh radar-skill:test -c 'python -m pip install --user pytest && python -m pytest -q -p no:cacheprovider'
-      - uses: docker/login-action@v3
-        if: github.event_name != 'pull_request'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish tested independent image
-        if: github.event_name != 'pull_request'
-        run: |
-          image=ghcr.io/wa200508/radar-skill
-          docker tag radar-skill:test "$image:sha-${{ github.sha }}"
-          docker push "$image:sha-${{ github.sha }}"
-          docker tag radar-skill:test "$image:latest"
-          docker push "$image:latest"
-      - name: Verify anonymous public pull
-        if: github.event_name != 'pull_request'
+      # Public releases are built from this repository's pinned Git commit by
+      # airsim-rf/.github/workflows/radar-skill.yml. Its existing GHCR package
+      # permits anonymous pulls; the separate radar-skill package currently does not.
+      - name: Verify the pinned public release with a fresh anonymous pull
+        env:
+          PUBLIC_IMAGE: ghcr.io/wa200508/airsim-rf:radar-skill-sha-ed36dffc23e716e24d7bf3ed084c0358d1d12e18
         run: |
           anonymous_config=$(mktemp -d)
           trap 'rm -rf "$anonymous_config"' EXIT
-          docker --config "$anonymous_config" pull ghcr.io/wa200508/radar-skill:sha-${{ github.sha }}
+          docker --config "$anonymous_config" pull "$PUBLIC_IMAGE"
+          docker run --rm --network none --entrypoint python "$PUBLIC_IMAGE" scripts/qualify_independence.py

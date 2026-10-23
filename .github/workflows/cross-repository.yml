@@ -1,0 +1,40 @@
+name: Cross-repository radar contract
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: radar-contract-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  acquisition-consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wa200508/airsim-rf
+          ref: 7d37ce65413f637bfb2e2675385a481b39ab1c16
+          path: acquisition
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install only CPU contract and test dependencies
+        run: |
+          python -m pip install -r requirements-lock.txt scipy==1.18.1 pytest==9.1.1 commentjson==0.9.0
+          python -m pip install --no-deps --no-build-isolation . -r acquisition/requirements-df-skill.txt
+      - name: Compile and audit source separation and documentation
+        run: |
+          python -m compileall -q src acquisition/src acquisition/scripts acquisition/tests
+          python acquisition/scripts/check_architecture.py
+          python acquisition/scripts/check_docs.py
+      - name: Test acquisition package and external consumer contract
+        env:
+          PYTHONPATH: acquisition/src
+        run: |
+          python -m pytest acquisition/tests/test_radar_scenario.py acquisition/tests/test_architecture_boundaries.py acquisition/tests/test_dashboard_container.py -q -rs -p no:cacheprovider
+          node --test acquisition/tests/dashboard_presentation.test.cjs

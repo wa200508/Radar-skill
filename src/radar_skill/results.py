@@ -13,6 +13,7 @@ class ResultWriter:
     def write(self,result):
         epoch=result['timestamp_ns']
         if isinstance(epoch,bool) or not isinstance(epoch,int):raise ValueError('Integer acquisition timestamp required')
-        data={k:v for k,v in result.items() if k not in ('history','waterfall','updated_monotonic')}
+        rolling={item['key'] for item in result.get('display',{}).get('histories',[]) if isinstance(item.get('key'),str)}
+        data={k:v for k,v in result.items() if k not in rolling|{'history','waterfall','updated_monotonic'}}
         path=self.path/f'{epoch}.json';temporary=path.with_suffix('.tmp')
         temporary.write_text(json.dumps(data,allow_nan=False)+'\n');temporary.replace(path)

@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/wa200508/airsim-rf/blob/main/docs/schemas/rf-skill-display-v1.schema.json",
+  "title": "RF Skill Display v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "revision",
+    "title",
+    "panels"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "selectors": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "options"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "value",
+                "label"
+              ],
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "available": {
+                  "$ref": "#/$defs/binding"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "panels": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[-a-zA-Z0-9_]+$"
+          },
+          "type": {
+            "enum": [
+              "line",
+              "scatter",
+              "polar",
+              "heatmap",
+              "waterfall",
+              "metrics",
+              "table"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "x": {
+            "$ref": "#/$defs/axis"
+          },
+          "y": {
+            "$ref": "#/$defs/axis"
+          },
+          "color": {
+            "$ref": "#/$defs/axis"
+          },
+          "series": {
+            "$ref": "#/$defs/binding"
+          },
+          "values": {
+            "$ref": "#/$defs/binding"
+          },
+          "rows": {
+            "$ref": "#/$defs/binding"
+          },
+          "points": {
+            "type": "boolean"
+          },
+          "legend": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "caption": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "value"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "$ref": "#/$defs/binding"
+                },
+                "valid_when": {
+                  "$ref": "#/$defs/binding"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "precision": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8
+                },
+                "empty": {
+                  "type": "string"
+                },
+                "true_label": {
+                  "type": "string"
+                },
+                "false_label": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "path"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^/"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "histories": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "limit",
+          "row"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+            "not": {
+              "enum": [
+                "display",
+                "timestamp_ns",
+                "sim_time_ns",
+                "carrier_hz",
+                "sample_rate_hz"
+              ]
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "row": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/binding"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(/|$)"
+        },
+        "each": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "value": {}
+      },
+      "oneOf": [
+        {
+          "required": [
+            "path"
+          ]
+        },
+        {
+          "required": [
+            "value"
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "axis": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/binding"
+        },
+        "index_start": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "ticks": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "period": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

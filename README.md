@@ -137,3 +137,13 @@ These CPU checks do not assert native GPU flight performance.
 Apache-2.0, matching DF-Skill and the public AMS-GRA starter kit RF example.
 The original airsim-rf MIT notice is retained in [licenses/airsim-rf-MIT.txt](licenses/airsim-rf-MIT.txt)
 and [NOTICE](NOTICE).
+
+
+## Skill-owned dashboard display
+
+[display.py](src/radar_skill/display.py)
+owns the plots, labels, units, scales, receiver selection and result bindings.
+`GET /display` serves the description; status and timestamped results include it
+as `display`. The dashboard renders those primitives without knowing which RF
+algorithm produced them. See [the display contract and extension guide](docs/skill-display.md).
+Saved results carry their view description for offline synchronized playback.

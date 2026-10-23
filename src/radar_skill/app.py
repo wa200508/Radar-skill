@@ -20,6 +20,7 @@ from urllib.parse import urlsplit
 import numpy as np
 from .sample_stream import iter_stream
 from .results import ResultWriter
+from .display import describe_display
 from .processing import range_doppler
 from .transceiver import TransceiverClient, validate_mode
 
@@ -35,6 +36,7 @@ class RadarSkill:
         self.results=ResultWriter(results_dir) if results_dir else None
         self.radio=None
         self.state={'status':'starting','ingress_ready':False,'payload_bytes':0,'complex_samples':0,'complete_windows':0,'payload_bytes_per_second':0.}
+        self.state['display']=describe_display(self.arrays)
 
     def start_transceiver(self,address,mode,*,ready_timeout=600):
         mode=validate_mode(mode,self.arrays)
@@ -137,7 +139,8 @@ def main():
         def do_GET(self):
             url=urlsplit(self.path).path
             try:
-                if url in ('/health','/status'):state=skill.snapshot()
+                if url=='/display':state=describe_display(skill.arrays)
+                elif url in ('/health','/status'):state=skill.snapshot()
                 elif url.startswith('/frames/'):state=skill.snapshot(int(url.rsplit('/',1)[-1]))
                 elif url.startswith('/epochs/'):state={k:v for k,v in skill.snapshot(int(url.rsplit('/',1)[-1])).items() if k in ('timestamp_ns','complete_windows')}
                 else:self.send_error(404);return

@@ -69,6 +69,8 @@ def main():
                 time.sleep(.02)
         try:
             iq,http=start('live',active=True);saved=[];recording=SampleRecordingWriter(root/'iq',config)
+            description=get(http,'/display')
+            assert description['schema_version']==1 and any(p['type']=='heatmap' for p in description['panels'])
             assert commands==[('/v1/configuration',mode),('/v1/state',{'transmit':True,'receive':True})]
             try:
                 with socket.create_connection(('127.0.0.1',iq),timeout=10) as connection:
@@ -80,6 +82,7 @@ def main():
                         writer.send_samples(block.receiver,block.samples,timestamp_ns=epoch,sample_rate_hz=block.sample_rate_hz)
                         writer.commit_window();frame=get(http,f'/frames/{epoch}');d=frame['radar']['detection']
                         assert d['detected'] and abs(d['range_m']-123)<4 and abs(d['range_rate_m_s']+12)<1,d
+                        assert frame['display']==description
                         assert frame['complete_windows']==i+1 and (root/'live'/f'{epoch}.json').is_file()
                         saved.append((values.tobytes(),frame['radar']))
                     assert writer.finish()=={'radar_rx0':80000}
@@ -92,10 +95,11 @@ def main():
             assert outcome['windows']==2
             for i,(_,expected) in enumerate(saved):
                 result=get(replay_http,f'/frames/{i*4000000}')
+                assert result['display']==description
                 assert result['radar']==expected,'Unchanged I/Q must produce identical radar results'
             assert len(commands)==command_count,'Replay must not command a transmitter'
             print(json.dumps({'status':'passed','actual_tcp_http_journal':True,'windows':2,
-                'source_dependencies_absent':True,'active_tx_rx_control':True,'stop_commanded':True,
+                'source_dependencies_absent':True,'skill_display_discovered_and_archived':True,'active_tx_rx_control':True,'stop_commanded':True,
                 'replay_does_not_transmit':True,'recording_exact':True,'unchanged_skill_replay':True,'detection':d}))
         finally:
             for process in processes:

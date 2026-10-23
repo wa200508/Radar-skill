@@ -10,7 +10,7 @@ in this repository or its container. NumPy is its only runtime dependency.
 ## Run the container
 
 ```bash
-docker pull ghcr.io/wa200508/radar-skill:latest
+docker pull ghcr.io/wa200508/airsim-rf:radar-skill-sha-ed36dffc23e716e24d7bf3ed084c0358d1d12e18
 mkdir -p results
 # Demonstration receiver settings; use your recording/hardware settings for real data.
 curl -fsSLo receiver-config.json https://raw.githubusercontent.com/wa200508/Radar-skill/main/examples/receiver-config.json
@@ -19,7 +19,7 @@ docker run --rm --user "$(id -u):$(id -g)" \
   -p 127.0.0.1:8811:8811 -p 127.0.0.1:8812:8812 \
   -v "$PWD/receiver-config.json:/config/arrays.json:ro" \
   -v "$PWD/results:/results" \
-  ghcr.io/wa200508/radar-skill:latest
+  ghcr.io/wa200508/airsim-rf:radar-skill-sha-ed36dffc23e716e24d7bf3ed084c0358d1d12e18
 ```
 
 For **rootless Docker**, use `--user 0:0` so its mapped UID owns a directory
@@ -28,7 +28,7 @@ No GPU, Docker socket, privileged mode or host network is required. HTTP status
 is available at `http://localhost:8812/status`; I/Q ingress is TCP 8811.
 Use the provided [receiver configuration example](examples/receiver-config.json),
 or the receiver-only configuration alongside an airsim-rf I/Q recording.
-The AirSim dashboard selects an immutable `:sha-<commit>` image automatically.
+The AirSim dashboard selects this immutable image automatically.
 
 ## Develop without containers
 
@@ -120,8 +120,16 @@ be **physically absent**. It exercises real TCP/HTTP and result files, verifies
 lossless sample recording, then replays the exact data through a fresh unchanged
 consumer and requires identical radar results. Run it in the container or a
 clean NumPy-only environment, not an environment also containing airsim-rf.
-CI repeats these checks and publishes `ghcr.io/wa200508/radar-skill:latest` and
-immutable `:sha-<full commit>` images, then checks anonymous registry pulls.
+CI repeats these checks. The public release is built from this repository's own
+Dockerfile and pinned source commit `ed36dffc23e716e24d7bf3ed084c0358d1d12e18` by
+[the public release workflow](https://github.com/wa200508/airsim-rf/blob/main/.github/workflows/radar-skill.yml).
+It is hosted under the existing public `airsim-rf` GHCR package because the separate
+`radar-skill` package currently rejects anonymous pulls. The image contains only
+this skill and NumPy; its hosting location introduces no AirSim dependency.
+The release workflow verifies a fresh anonymous pull and offline I/Q replay.
+To release a changed implementation, update the source pin and image selection
+in airsim-rf together. Source CI builds and tests the current checkout separately
+from its smoke check of the pinned public release.
 
 ## License and attribution
 

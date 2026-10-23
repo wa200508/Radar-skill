@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wa200508/airsim-rf
-          ref: a3b30ed88162a2939bc1016f1c163d84475d595f
+          ref: 344b4af30748595fd93990e1fd9cabb39e027179
           path: acquisition
       - uses: actions/setup-python@v5
         with:

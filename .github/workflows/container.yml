@@ -38,7 +38,7 @@ jobs:
       # permits anonymous pulls; the separate radar-skill package currently does not.
       - name: Verify the pinned public release with a fresh anonymous pull
         env:
-          PUBLIC_IMAGE: ghcr.io/wa200508/airsim-rf:radar-skill-sha-bb78fbd0c7b3506b36ae1ad82b9df78acedbe66c
+          PUBLIC_IMAGE: ghcr.io/wa200508/airsim-rf:radar-skill-sha-9c9a57339784f87034e835f836076aaa8691f08a
         run: |
           anonymous_config=$(mktemp -d)
           trap 'rm -rf "$anonymous_config"' EXIT

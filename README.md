@@ -147,3 +147,11 @@ owns the plots, labels, units, scales, receiver selection and result bindings.
 as `display`. The dashboard renders those primitives without knowing which RF
 algorithm produced them. See [the display contract and extension guide](docs/skill-display.md).
 Saved results carry their view description for offline synchronized playback.
+
+
+The range–Doppler display uses horizontal Doppler (kHz) and vertical range (m),
+increasing upward. `processing.range_doppler()` returns `power_db[range][doppler]`
+and `power_axes: ["range","doppler"]` (since 0.4.0). The detector's median-contrast
+threshold is unchanged. Color presets change presentation only; the median and
+peak FFT-bin powers use coherent-window normalization in dB re 1 V². The airsim-rf observer can adapt the known older radar archive layout for display
+without modifying stored matrices, samples or detections.

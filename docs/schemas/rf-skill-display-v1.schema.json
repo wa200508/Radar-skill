@@ -293,6 +293,32 @@
         "period": {
           "type": "number",
           "exclusiveMinimum": 0
+        },
+        "presets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": [
+              "label",
+              "range"
+            ],
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "range": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false

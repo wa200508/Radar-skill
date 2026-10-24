@@ -95,3 +95,17 @@ Radar-skill owns range-Doppler maps, candidate range/range rate, dechirped PSD,
 color scales and detector limitations. AirSim-RF owns the generic renderer,
 frame/camera synchronization, transport indicators, terrain and source telemetry.
 Neither acquisition nor simulation imports a skill's display implementation.
+
+
+## Matrix orientation and color presets
+
+Heatmap matrices are `values[y_index][x_index]`. Increasing y coordinates run
+from bottom to top; increasing x coordinates run left to right. The matrix must
+match the supplied axis vectors. Bins use those numeric coordinates, including
+when explicit axis ranges clip part of the data.
+
+Optional `color.presets` supplies up to eight `{label, range:[low,high]}` choices.
+The first is the default. The dashboard renders a local color-scale selector;
+changing it redraws the currently presented frame only and never changes samples,
+processing, detection or playback time. The selected preset overrides only the
+color range. A display scale cannot recover physical signal buried under noise.

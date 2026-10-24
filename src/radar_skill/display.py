@@ -7,7 +7,10 @@ which algorithm/metrics a skill should present. No executable UI code is sent.
 
 
 def describe_display(arrays):
-    sites=arrays['sites']
+    sites=arrays['sites'];acquisition=arrays['acquisition']
+    doppler_limit_khz=.5/acquisition['pri_s']/1000
+    slope=acquisition['bandwidth_hz']/acquisition['chirp_duration_s']
+    range_limit_m=arrays['sample_rate_hz']*299792458./(4*slope)
     names=[site['id'] for site in sites]
     selectors=[{'id':'receiver','label':'Receiver I/Q stream','options':[
         {'value':str(i),'label':name+' · element 0','available':{'path':f'/receiver_spectra/{i}/psd/frequency_khz'}}
@@ -24,16 +27,21 @@ def describe_display(arrays):
          'rows':{'path':'/waterfall','each':'/site_psd_db/{receiver}'},
          'color':{'label':'PSD','unit':'dB re 1 V²/Hz','range':[-120,-45]}},
         {'id':'detection','type':'metrics','title':'Radar candidate','items':[
+            {'label':'Median FFT-bin power','value':{'path':'/radar/median_bin_power_dbv2'},'unit':'dB re 1 V²','precision':1},
+            {'label':'Peak FFT-bin power','value':{'path':'/radar/peak_bin_power_dbv2'},'unit':'dB re 1 V²','precision':1},
             {'label':'Detection','value':{'path':'/radar/detection/detected'},'true_label':'DETECTED','false_label':'NO DETECTION'},
             {'label':'Range','value':{'path':'/radar/detection/range_m'},'unit':'m','precision':1,'valid_when':{'path':'/radar/detection/detected'}},
             {'label':'Range rate','value':{'path':'/radar/detection/range_rate_m_s'},'unit':'m/s','precision':1,'valid_when':{'path':'/radar/detection/detected'}}],
          'caption':'One strongest candidate; 18 dB contrast above median map power. This is not calibrated CFAR.'},
         {'id':'range-doppler','type':'heatmap','title':'Range–Doppler map',
-         'x':{'data':{'path':'/radar/range_m'},'label':'Range','unit':'m'},
-         'y':{'data':{'path':'/radar/range_rate_m_s'},'label':'Range rate','unit':'m/s'},
-         'values':{'path':'/radar/power_db'},'color':{'label':'Contrast above median','unit':'dB','range':[-10,35]},
-         'caption':'64 chirps · Hann-windowed FFT · positive range rate is receding. The map retains FMCW range/Doppler coupling; candidate range is corrected.'}]
-    return {'schema_version':1,'id':'radar-rf-skill','revision':'1','title':'Radar RF Skill',
+         'x':{'data':{'path':'/radar/doppler_khz'},'label':'Doppler','unit':'kHz','range':[-doppler_limit_khz,doppler_limit_khz]},
+         'y':{'data':{'path':'/radar/range_m'},'label':'Range','unit':'m','range':[0,range_limit_m]},
+         'values':{'path':'/radar/power_db'},'color':{'label':'Contrast above median','unit':'dB','range':[-5,15],
+            'presets':[{'label':'Noise detail (−5 to +15 dB)','range':[-5,15]},
+                       {'label':'Strong echoes (−10 to +45 dB)','range':[-10,45]},
+                       {'label':'Wide dynamic range (−30 to +45 dB)','range':[-30,45]}]},
+         'caption':'Range increases upward; full signed Doppler spectrum. Positive Doppler is receding. Color is contrast to the current map median, not calibrated SNR; scale changes never alter I/Q or detection. The map retains FMCW range/Doppler coupling.'}]
+    return {'schema_version':1,'id':'radar-rf-skill','revision':'2','title':'Radar RF Skill',
             'selectors':selectors,'panels':panels,'histories':[{
                 'key':'waterfall','limit':60,'row':{'timestamp_ns':{'path':'/timestamp_ns'},
                 'psd_db':{'path':'/psd/density_db_v2_hz'},

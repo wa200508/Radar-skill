@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import json
 import math
 import re
+import select
 import socket
 import struct
 import numpy as np
@@ -174,16 +175,22 @@ class SampleStreamWriter:
         return totals
 
 
-def iter_stream(sock, *, validate_end=None, validate_window=None):
+def iter_stream(sock, *, validate_end=None, validate_window=None, allow_idle=False):
     """Yield complete voltage blocks; acknowledge only after consumer exhausts them.
 
     Breaking iteration early or raising in processing leaves completion
     unacknowledged. EOF without an end frame is a failure, not normal completion.
     Optional validate_end runs before ACK to enforce application-level completion.
+
+    allow_idle waits without a deadline BETWEEN frames, for paused or sporadic
+    acquisition sources. EOF still fails immediately. Once any frame bytes arrive,
+    the socket's finite timeout still bounds incomplete headers and payloads.
+    Processing acknowledgements retain the writer's finite timeout.
     """
     if sock.gettimeout() is None or sock.gettimeout()<=0:raise ValueError('A finite positive socket timeout is required')
     states={};sequence=0;version=None;last_window_sequence=0;epochs={}
     while True:
+        if allow_idle:select.select([sock],[],[])
         h,payload=_receive(sock)
         if version is None:version=h['version']
         if h['version']!=version:raise ValueError('Protocol version changed within stream')

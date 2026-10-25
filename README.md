@@ -155,3 +155,13 @@ and `power_axes: ["range","doppler"]` (since 0.4.0). The detector's median-contr
 threshold is unchanged. Color presets change presentation only; the median and
 peak FFT-bin powers use coherent-window normalization in dB re 1 V². The airsim-rf observer can adapt the known older radar archive layout for display
 without modifying stored matrices, samples or detections.
+
+## Idle acquisition and transfer timeouts
+
+An established receiver stream may wait indefinitely between frames, including
+while an acquisition source is paused. Disconnects still fail immediately, and
+incomplete frame transfers retain a finite socket timeout. This is generic
+receiver behavior for hardware, replay and simulation; no source clock or
+algorithm-specific heartbeat is required. Processing acknowledgements remain
+bounded by the sender's timeout. Restart the skill for a new experiment after
+a failed stream.

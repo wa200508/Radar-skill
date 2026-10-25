@@ -99,7 +99,7 @@ class RadarSkill:
                         conn.settimeout(3600);completed=0
                         def validate():
                             if not completed:raise ValueError('Stream contains no radar windows')
-                        for block in iter_stream(conn,validate_end=validate,validate_window=validate):
+                        for block in iter_stream(conn,validate_end=validate,validate_window=validate,allow_idle=True):
                             if block.receiver!=self.channels[0]:raise ValueError('Unknown radar receiver channel')
                             self.process(block);completed+=1
                         with self.lock:self.state['status']='complete'

@@ -37,11 +37,11 @@ def describe_display(arrays):
          'x':{'data':{'path':'/radar/doppler_khz'},'label':'Doppler','unit':'kHz','range':[-doppler_limit_khz,doppler_limit_khz]},
          'y':{'data':{'path':'/radar/range_m'},'label':'Range','unit':'m','range':[0,range_limit_m]},
          'values':{'path':'/radar/power_db'},'color':{'label':'Contrast above median','unit':'dB','range':[-5,15],
-            'presets':[{'label':'Noise detail (−5 to +15 dB)','range':[-5,15]},
-                       {'label':'Strong echoes (−10 to +45 dB)','range':[-10,45]},
-                       {'label':'Wide dynamic range (−30 to +45 dB)','range':[-30,45]}]},
-         'caption':'Range increases upward; full signed Doppler spectrum. Positive Doppler is receding. Color is contrast to the current map median, not calibrated SNR; scale changes never alter I/Q or detection. The map retains FMCW range/Doppler coupling.'}]
-    return {'schema_version':1,'id':'radar-rf-skill','revision':'2','title':'Radar RF Skill',
+            'presets':[{'label':'Narrow color scale (−5 to +15 dB)','range':[-5,15]},
+                       {'label':'Medium color scale (−10 to +45 dB)','range':[-10,45]},
+                       {'label':'Wide color scale (−30 to +45 dB)','range':[-30,45]}]},
+         'caption':'Every color scale shows the same received I/Q; none isolates or removes noise, clutter or target echoes. Range increases upward; full signed Doppler spectrum. Positive Doppler is receding. Color is contrast to the current map median, not calibrated SNR; scale changes never alter I/Q or detection. The map retains FMCW range/Doppler coupling.'}]
+    return {'schema_version':1,'id':'radar-rf-skill','revision':'3','title':'Radar RF Skill',
             'selectors':selectors,'panels':panels,'histories':[{
                 'key':'waterfall','limit':60,'row':{'timestamp_ns':{'path':'/timestamp_ns'},
                 'psd_db':{'path':'/psd/density_db_v2_hz'},
